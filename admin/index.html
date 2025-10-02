@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Panel de Pedidos v3</title>
+<style>
+  :root{
+    --bg:#f5f7fb;--card:#fff;--line:#e5e7eb;--ink:#0f172a;--muted:#64748b;
+    --ok:#10b981;--warn:#f59e0b;--accent:#3b82f6;--chip:#ecfeff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui;color:var(--ink)}
+  header{max-width:1100px;margin:14px auto;padding:14px 16px;background:#fff;border:1px solid var(--line);
+         border-radius:12px;display:flex;justify-content:space-between;align-items:center}
+  h1{margin:0;font-size:20px}
+  .badge{background:#eef2ff;color:#1e40af;border:1px solid #e0e7ff;padding:6px 10px;border-radius:999px;font-size:12px}
+  .btn{padding:8px 12px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-weight:600}
+  .btn.red{background:#ef4444;color:#fff;border-color:#ef4444}
+  .wrap{max-width:1100px;margin:0 auto;padding:10px}
+  .empty{padding:40px;text-align:center;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:14px 0}
+  .top{display:flex;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid #f1f5f9}
+  .left .row{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:14px}
+  .chip{background:var(--chip);border:1px solid #7dd3fc;color:#0369a1;padding:4px 10px;border-radius:999px;font-weight:700}
+  .chip.ok{background:#dcfce7;border-color:#86efac;color:#065f46}
+  .box{padding:14px 16px}
+  .kv{margin:8px 0}
+  .k{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.3px}
+  .v{font-size:16px;font-weight:700}
+  .items{margin-top:8px;padding:12px;background:#f8fafc;border-radius:10px}
+  .item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e5e7eb}
+  .item:last-child{border-bottom:none}
+  .total{margin-top:8px;display:flex;justify-content:flex-end;gap:8px;font-weight:900}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .btn.accent{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Panel de Pedidos <span style="color:#7c3aed;font-weight:800">v3</span></h1>
+  <div>
+    <span id="count" class="badge">0 pedidos</span>
+    <button class="btn red" onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="list"></div>
+</div>
+
+<script>
+  // 👉 PONÉ TU SCRIPT URL AQUÍ (el mismo que usa el cliente):
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxV5wQq6ZXCdWku32WZCbaLl-6HFd9tf4t2HxOfcwMD8owieN5TlWIRkt3fKGpYfI-iOQ/exec";
+  const PANEL_PIN = "2468";
+  let pedidos = [];
+  let timer = null;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const saved = localStorage.getItem("panel_pin");
+    if (saved !== PANEL_PIN) {
+      const pin = prompt("PIN del panel:");
+      if (pin !== PANEL_PIN) { alert("PIN incorrecto"); location.href="/"; return; }
+      localStorage.setItem("panel_pin", pin);
+    }
+    load();
+    timer = setInterval(load, 8000);
+  });
+
+  function logout(){ localStorage.removeItem("panel_pin"); location.href="/"; }
+
+  async function load(){
+    try{
+      const res = await fetch(`${BACKEND_URL}?action=getPedidos&pin=${PANEL_PIN}`);
+      const data = await res.json();
+      if(!data.ok){ alert(data.error || "PIN incorrecto"); logout(); return; }
+      pedidos = Array.isArray(data.pedidos)? data.pedidos : [];
+      render();
+    }catch(e){ console.error(e); }
+  }
+
+  function fmtMoney(n){ try{ return "$ " + Number(n||0).toLocaleString("es-AR"); }catch(_){ return "$ " + n; } }
+  function fmtDate(d){ try{ return new Date(d).toLocaleString("es-AR"); }catch(_){ return d; } }
+
+  function render(){
+    const root = document.getElementById("list");
+    document.getElementById("count").textContent = `${pedidos.length} pedido${pedidos.length!==1?"s":""}`;
+    if(pedidos.length===0){ root.innerHTML = `<div class="empty">No hay pedidos</div>`; return; }
+
+    // más nuevos primero (por si el backend no los invierte)
+    const rows = [...pedidos].sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
+
+    root.innerHTML = rows.map(p => `
+      <div class="card">
+        <div class="top">
+          <div class="left">
+            <div class="row" style="font-weight:800;font-size:18px;">Pedido #${p.numero ?? "-"}</div>
+            <div class="row">UUID: ${p.uuid || "-"}</div>
+          </div>
+          <div class="right">
+            <div class="row"><span class="k">Enviado:</span>&nbsp;${fmtDate(p.fecha)}</div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="kv"><div class="k">Nombre</div><div class="v">${p.nombre||"-"}</div></div>
+          ${p.email ? `<div class="kv"><div class="k">Email</div><div class="v">${p.email}</div></div>` : ``}
+          <div class="kv"><div class="k">Total</div><div class="v">${fmtMoney(p.total)}</div></div>
+          ${p.retiro ? `<div class="kv"><div class="k">Retiro</div><div class="v">${p.retiro}</div></div>` : ``}
+          ${p.comentarios ? `<div class="kv"><div class="k">Comentarios</div><div class="v" style="font-weight:600">${p.comentarios}</div></div>` : ``}
+          ${p.mesa && p.mesa !== "-" ? `<div class="kv"><div class="k">Mesa</div><div class="v">${p.mesa}</div></div>` : ``}
+
+          <div class="kv" style="margin-top:10px">
+            <div class="k">Ítems</div>
+            <div class="items">
+              ${(p.items||[]).map(i => `
+                <div class="item">
+                  <div>${i.quantity} × ${i.title}</div>
+                  <div>${fmtMoney(Number(i.unit_price||0)*Number(i.quantity||0))}</div>
+                </div>
+              `).join("")}
+              ${(p.items||[]).length===0 ? `<div class="item" style="border:0;color:#6b7280">Sin ítems</div>` : ``}
+            </div>
+          </div>
+
+          <div class="total"><div>Total</div><div>${fmtMoney(p.total)}</div></div>
+
+          <div class="actions">
+            <span class="chip ${p.impreso?'ok':''}">${p.impreso?'IMPRESO':'Sin imprimir'}</span>
+            <button class="btn accent" onclick="marcarImpreso('${p.uuid}', ${p.impreso? 'false':'true'})">
+              ${p.impreso ? 'Marcar NO impreso' : 'Marcar IMPRESO'}
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function marcarImpreso(uuid, toImpreso){
+    try{
+      const url = `${BACKEND_URL}?action=updatePedido&pin=${PANEL_PIN}&uuid=${encodeURIComponent(uuid)}&impreso=${toImpreso?'SI':''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(!data.ok){ alert(data.error||'Error'); return; }
+      load();
+    }catch(e){ console.error(e); alert('Error de conexión'); }
+  }
+</script>
+</body>
+</html>
