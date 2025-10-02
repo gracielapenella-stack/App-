@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Pedidos — Demo</title>
+  <style>
+    :root{
+      --bg:#ffffff;--fg:#0f172a;--fg-soft:#6b7280;
+      --primary:#3b82f6; --accent:#7c3aed;
+      --surface:#f5f7fb; --card:#ffffff; --muted:#e5e7eb;
+      --radius:16px; --fs-xxl: clamp(28px, 4vw, 42px);
+      --fs-xl:clamp(20px, 2.6vw, 26px); --fs-md:15px; --fs-sm:13px;
+      --wrap:1200px; --gap:18px; --pad:18px; --bar:72px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--surface);color:var(--fg);
+         font-family:Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial}
+    header{position:sticky;top:0;z-index:2;background:var(--bg);
+           border-bottom:1px solid var(--muted);backdrop-filter:saturate(180%) blur(6px)}
+    .wrap{max-width:var(--wrap);margin:auto;display:flex;align-items:center;gap:12px;padding:14px var(--pad)}
+    h1{font-size:clamp(20px,2.6vw,26px);font-weight:800;color:var(--primary);letter-spacing:.2px;margin:0}
+    .pill{background:#eef2ff;color:#1e40af;border:1px solid #e0e7ff;padding:6px 10px;border-radius:999px;font-size:12px}
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px var(--pad)}
+    .chip{border:1px solid var(--muted);background:var(--bg);padding:8px 12px;border-radius:999px;cursor:pointer;font-weight:600;color:#334155}
+    .chip.active,.chip:hover{border-color:var(--primary);color:var(--primary);background:#eff6ff}
+    .grid{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) 90px;display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
+    .cards{grid-column:1 / span 9;display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
+    .card{background:var(--card);border:1px solid var(--muted);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .ph{height:88px;border-radius:12px;background:linear-gradient(180deg,#eef2ff,#f5f3ff);border:1px solid #e9e5ff}
+    .title{font-weight:800}
+    .desc{color:var(--fg-soft);font-size:13px}
+    .price{font-weight:900}
+    .btn{border:none;background:var(--primary);color:#fff;font-weight:700;padding:10px 12px;border-radius:10px;cursor:pointer}
+    .btn:hover{filter:brightness(.95)}
+    .btn-outline{background:#fff;color:var(--primary);border:1px solid var(--primary)}
+    .qty{display:flex;align-items:center;gap:10px}
+    .qty button{width:28px;height:28px;border-radius:8px;border:1px solid var(--muted);background:#fff;font-weight:800;cursor:pointer}
+    .cart{grid-column:10 / span 3;position:sticky;top:calc(var(--bar)+10px);align-self:start;background:var(--card);border:1px solid var(--muted);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+    .cart-item{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--muted);border-radius:12px;padding:10px}
+    .cart-total{display:flex;justify-content:space-between;font-weight:900;border-top:1px dashed var(--muted);padding-top:10px}
+    .bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:var(--bg);border-top:1px solid var(--muted);display:flex;align-items:center}
+    .bar .wrap{justify-content:space-between}
+    .bar .info{color:var(--fg-soft)}
+    .primary{background:linear-gradient(90deg,#3b82f6,#7c3aed);}
+    .primary:hover{filter:brightness(.98)}
+    @media (max-width:1024px){ .cards{grid-template-columns:repeat(2,1fr)} .cart{grid-column:1 / -1;position:static} }
+    @media (max-width:640px){ .cards{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><h1>Pedidos</h1><span class="pill">Demo genérico</span></div></header>
+  <nav class="wrap" id="cats"></nav>
+  <main class="grid">
+    <section class="cards" id="cards"></section>
+    <aside class="cart">
+      <h3>Tu pedido</h3>
+      <div id="cart-list"></div>
+      <div class="cart-total"><span>Total</span><span id="cart-total">$ 0</span></div>
+      <div id="customer" style="display:none">
+        <input id="name" placeholder="Tu nombre" style="width:100%;padding:10px;border:1px solid var(--muted);border-radius:10px;margin-top:6px"/>
+        <input id="phone" placeholder="Tu teléfono" style="width:100%;padding:10px;border:1px solid var(--muted);border-radius:10px;margin-top:8px"/>
+        <input id="mesa" placeholder="Mesa / Sector" style="width:100%;padding:10px;border:1px solid var(--muted);border-radius:10px;margin-top:8px"/>
+        <button class="btn primary" style="width:100%;margin-top:10px" onclick="confirmOrder(event)">Confirmar y pagar</button>
+      </div>
+      <button id="btn-cont" class="btn" onclick="openCheckout()">Continuar</button>
+      <button class="btn btn-outline" onclick="clearCart()">Vaciar</button>
+    </aside>
+  </main>
+  <div class="bar"><div class="wrap"><div class="info"><span id="footer-items">0 ítems</span> · <strong id="footer-total">$ 0</strong></div><button class="btn primary" onclick="openCheckout()">Ir a pagar</button></div></div>
+
+  <script>
+  /* === CONFIG: URL /exec del Apps Script (MISMO que usa el panel) === */
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxyUgurqdmKuaT7u6e8yDqNlPw6cvb94-Hj5y0iliFgr1KT9vqQ6Q3CWIxRS40QGceyiQ/exec";
+  /* ==================================================== */
+
+  /* --- Manejo de regreso desde Mercado Pago --- */
+  function handleReturnFromMP() {
+    const u = new URL(window.location.href);
+    const status = u.searchParams.get("status");
+    if (!status) return;
+    const msg =
+      status === "success" ? "✅ ¡Pago aprobado! Gracias."
+      : status === "pending" ? "🕒 Pago pendiente. Te avisamos cuando se acredite."
+      : "❌ El pago no se completó. Podés intentar nuevamente.";
+    setTimeout(() => alert(msg), 120);
+    if (status === "success") { try{ localStorage.removeItem("cart"); }catch(e){} }
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  /* --- Persistencia del carrito --- */
+  let cart = [];
+  try {
+    const saved = localStorage.getItem("cart");
+    cart = saved ? JSON.parse(saved) : [];
+  } catch(e){ cart = []; }
+  function persistCart(){ try{ localStorage.setItem("cart", JSON.stringify(cart)); }catch(e){} }
+
+  /* --- Arranque --- */
+  document.addEventListener("DOMContentLoaded", init);
+  function init(){
+    handleReturnFromMP();
+    renderCats(); renderCards(); renderCart();
+  }
+
+  /* === Catálogo === */
+  const catalog = [
+    {id:100,title:"🧪 Producto de prueba",desc:"Solo para testear el flujo",price:100,cat:"Destacados"},
+
+    {id:1,title:"Combo del día",desc:"Plato + bebida",price:12000,cat:"Destacados"},
+    {id:2,title:"Wrap de pollo",desc:"Con guarnición",price:4900,cat:"Wraps"},
+    {id:3,title:"Wrap vegetariano",desc:"Con guarnición",price:4900,cat:"Wraps"},
+    {id:4,title:"Sándwich completo",desc:"Jamón, queso, tomate, lechuga",price:7800,cat:"Sandwiches"},
+    {id:5,title:"Milanesa completa",desc:"Pan, lechuga, tomate",price:6500,cat:"Sandwiches"},
+    {id:6,title:"Ensalada César",desc:"Pollo, croutons, parmesano",price:6900,cat:"Ensaladas"},
+    {id:7,title:"Agua",desc:"500 ml",price:1800,cat:"Bebidas"},
+    {id:8,title:"Gaseosa",desc:"354 ml",price:2200,cat:"Bebidas"},
+  ];
+  const cats = ["Todo","Destacados","Wraps","Sandwiches","Ensaladas","Bebidas"];
+  let selCat="Todo";
+
+  function fmt(n){return "$ "+n.toLocaleString("es-AR");}
+  function renderCats(){
+    const c=document.getElementById("cats"); c.innerHTML="";
+    cats.forEach(k=>{
+      const b=document.createElement("button");
+      b.className="chip"+(k===selCat?" active":"");
+      b.textContent=k;
+      b.onclick=()=>{selCat=k;renderCards();};
+      c.appendChild(b);
+    });
+  }
+  function renderCards(){
+    const root=document.getElementById("cards"); root.innerHTML="";
+    (catalog.filter(i=>selCat==="Todo"||i.cat===selCat)).forEach(i=>{
+      const el=document.createElement("article");
+      el.className="card";
+      el.innerHTML=
+        `<div class="ph"></div>
+         <div class="title">${i.title}</div>
+         <div class="desc">${i.desc||""}</div>
+         <div class="price">${fmt(i.price)}</div>
+         <div class="qty">
+           <button onclick="dec(${i.id})">-</button>
+           <span id="q-${i.id}">${qty(i.id)}</span>
+           <button onclick="inc(${i.id})">+</button>
+           <div style="flex:1"></div>
+           <button class="btn" onclick="add(${i.id})">Agregar</button>
+         </div>`;
+      root.appendChild(el);
+    });
+  }
+  function qty(id){const it=cart.find(x=>x.id===id);return it?it.quantity:0;}
+  function inc(id){const it=cart.find(x=>x.id===id);if(it){it.quantity++;}else{const p=catalog.find(x=>x.id===id);cart.push({...p,quantity:1});}update();}
+  function dec(id){const it=cart.find(x=>x.id===id);if(!it)return;it.quantity--;if(it.quantity<=0){cart=cart.filter(x=>x.id!==id);}update();}
+  function add(id){inc(id);}
+  function cartTotal(){return cart.reduce((a,i)=>a+i.price*i.quantity,0);}
+  function cartItems(){return cart.reduce((a,i)=>a+i.quantity,0);}
+  function renderCart(){
+    const list=document.getElementById("cart-list");
+    list.innerHTML=cart.length===0
+      ? `<div class="desc">Tu carrito está vacío</div>`
+      : cart.map(i=>`<div class="cart-item">
+           <div>
+             <div class="title" style="font-size:14px">${i.title}</div>
+             <div class="desc">${fmt(i.price)} × ${i.quantity}</div>
+           </div>
+           <div class="qty">
+             <button onclick="dec(${i.id})">-</button>
+             <strong>${i.quantity}</strong>
+             <button onclick="inc(${i.id})">+</button>
+           </div>
+         </div>`).join("");
+    document.getElementById("cart-total").textContent=fmt(cartTotal());
+    document.getElementById("footer-total").textContent=fmt(cartTotal());
+    document.getElementById("footer-items").textContent=cartItems()+" ítems";
+    persistCart();
+  }
+  function update(){renderCards();renderCart();}
+  function openCheckout(){
+    if(cart.length===0){alert("Agregá algún producto ✨");return;}
+    document.getElementById("customer").style.display="block";
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  function clearCart(){cart=[];update();persistCart();}
+
+  async function confirmOrder(ev){
+    const name=document.getElementById("name").value.trim();
+    const phone=document.getElementById("phone").value.trim();
+    const mesa=document.getElementById("mesa").value.trim();
+    if(!name||!phone){alert("Completá nombre y teléfono");return;}
+    const btn = ev?.target; if(btn){btn.textContent="Procesando..."; btn.disabled=true;}
+    try{
+      const res = await fetch(BACKEND_URL,{
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" }, /* evita preflight */
+        body: JSON.stringify({
+          items: cart.map(i=>({title:i.title, quantity:i.quantity, unit_price:i.price})),
+          mesa: mesa || "Sin mesa",
+          name, phone,
+          return_url: window.location.origin
+        })
+      });
+      if(!res.ok) throw new Error("Error del servidor: "+res.status);
+      const data = await res.json();
+      if(data.error) throw new Error(data.error);
+      if(!data.init_point) throw new Error("No se recibió link de pago");
+      window.location.href = data.init_point;
+    }catch(err){
+      alert("No se pudo conectar al backend: "+err.message);
+    }finally{
+      if(btn){btn.textContent="Confirmar y pagar"; btn.disabled=false;}
+    }
+  }
+  </script>
+</body>
+</html>
