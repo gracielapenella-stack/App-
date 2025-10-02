@@ -72,7 +72,7 @@
 
   <script>
   /* === CONFIG: URL /exec del Apps Script (MISMO que usa el panel) === */
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxyUgurqdmKuaT7u6e8yDqNlPw6cvb94-Hj5y0iliFgr1KT9vqQ6Q3CWIxRS40QGceyiQ/exec";
+  const BACKEND_URL = "https://script.google.com/macros/library/d/12QXxov8HFGHsTmOIE5enChevrHn5zBaP11MzERRtDnv1ahnEOQNgwk6J/23";
   /* ==================================================== */
 
   /* --- Manejo de regreso desde Mercado Pago --- */
